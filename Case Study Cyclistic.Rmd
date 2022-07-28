@@ -1,0 +1,246 @@
+---
+title: "Case Study: How does a Bike-Share Navigate Speedy Success?"
+author: "Thomas Li"
+date: "2022-07-27"
+output:
+  html_document: default
+  pdf_document: default
+---
+
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(echo = TRUE)
+```
+
+## Scenario
+
+You are a junior data analyst working in the marketing analyst team at Cyclistic, a bike-share company in Chicago. The director of marketing believes the company’s future success depends on maximizing the number of annual memberships. Therefore, your team wants to understand how casual riders and annual members use Cyclistic bikes differently. From these insights, your team will design a new marketing strategy to convert casual riders into annual members. But first, Cyclistic executives must approve your recommendations, so they must be backed up with compelling data insights and professional data visualizations.
+
+## Characters and teams
+
+● Cyclistic: A bike-share program that features more than 5,800 bicycles and 600 docking stations. Cyclistic sets itself apart by also offering reclining bikes, hand tricycles, and cargo bikes, making bike-share more inclusive to people with disabilities and riders who can’t use a standard two-wheeled bike. The majority of riders opt for traditional bikes; about 8% of riders use the assistive options. Cyclistic users are more likely to ride for leisure, but about 30% use them to commute to work each day.
+
+● Lily Moreno: The director of marketing and your manager. Moreno is responsible for the development of campaigns and initiatives to promote the bike-share program. These may include email, social media, and other channels.
+
+● Cyclistic marketing analytics team: A team of data analysts who are responsible for collecting, analyzing, and reporting data that helps guide Cyclistic marketing strategy. You joined this team six months ago and have been busy learning about Cyclistic’s mission and business goals — as well as how you, as a junior data analyst, can help Cyclistic achieve them.
+
+● Cyclistic executive team: The notoriously detail-oriented executive team will decide whether to approve the recommended marketing program.
+
+## Goal
+
+The ultimate goal is to design marketing strategies aimed at converting casual riders into annual members.
+To do so, a smaller question that I aim to answer here is: How do annual members and casual riders use Cyclistic bikes differently.
+
+## Data Source
+
+I will be using a total record of 12 months of Cyclistic's historial trip data to analyze and identify trends. It is a public data set, made available by Motivate International Inc. under this [license.](https://www.divvybikes.com/data-license-agreement) My data ranges from April 2019 to March 2020, and it is cited and vetted by Chicago department of transportation. 
+
+Note: for data security purposes, every riders' personal identifiable information is hidden through tokenization.
+
+## Why R?
+
+Excel spreadsheets can only contain 1,048,576 rows by 16,384 columns and the 4 quarterly datasets combined are far beyond that limit, therefore R is used to perform all tasks - organizing, cleaning, analyzing, and visualizing.
+
+### Setting up
+```{r}
+library(tidyverse)
+library(lubridate)
+library(ggplot2)
+library(metR)
+```
+
+### Importing data into R
+
+```{r}
+Q1_2020<-read_csv("/Users/thomasli/Downloads/Divvy_Trips_2020_Q1.csv")
+Q2_2019<-read_csv("/Users/thomasli/Downloads/Divvy_Trips_2019_Q2.csv")
+Q3_2019<-read_csv("/Users/thomasli/Downloads/Divvy_Trips_2019_Q3.csv")
+Q4_2019<-read_csv("/Users/thomasli/Downloads/Divvy_Trips_2019_Q4.csv")
+```
+### Compare column names of each csv file so that they match before joining them into one table.
+```{r}
+colnames(Q2_2019)
+colnames(Q3_2019)
+colnames(Q4_2019)
+colnames(Q1_2020)
+```
+### Notice the difference in label between the four quarters. Now I have to utilize rename() to match each data set to Q1_2020.
+```{r}
+(Q4_2019 <- rename(Q4_2019
+                   ,ride_id = trip_id
+                   ,rideable_type = bikeid 
+                   ,started_at = start_time  
+                   ,ended_at = end_time  
+                   ,start_station_name = from_station_name 
+                   ,start_station_id = from_station_id 
+                   ,end_station_name = to_station_name 
+                   ,end_station_id = to_station_id 
+                   ,member_casual = usertype))
+
+(Q3_2019 <- rename(Q3_2019
+                   ,ride_id = trip_id
+                   ,rideable_type = bikeid 
+                   ,started_at = start_time  
+                   ,ended_at = end_time  
+                   ,start_station_name = from_station_name 
+                   ,start_station_id = from_station_id 
+                   ,end_station_name = to_station_name 
+                   ,end_station_id = to_station_id 
+                   ,member_casual = usertype))
+
+(Q2_2019 <- rename(Q2_2019
+                   ,ride_id = "01 - Rental Details Rental ID"
+                   ,rideable_type = "01 - Rental Details Bike ID" 
+                   ,started_at = "01 - Rental Details Local Start Time"  
+                   ,ended_at = "01 - Rental Details Local End Time"  
+                   ,start_station_name = "03 - Rental Start Station Name" 
+                   ,start_station_id = "03 - Rental Start Station ID"
+                   ,end_station_name = "02 - Rental End Station Name" 
+                   ,end_station_id = "02 - Rental End Station ID"
+                   ,member_casual = "User Type"))
+```
+### Inspect each updated datasets to make sure they are consistent.
+```{r}
+summary(Q1_2020)
+summary(Q2_2019)
+summary(Q3_2019)
+summary(Q4_2019)
+```
+### Utilize mutate() to convert ride_id and rideable_id to the same type for us to stack.
+```{r}
+Q2_2019 <-  mutate(Q2_2019, ride_id = as.character(ride_id)
+                   ,rideable_type = as.character(rideable_type)) 
+Q3_2019 <-  mutate(Q3_2019, ride_id = as.character(ride_id)
+                   ,rideable_type = as.character(rideable_type)) 
+Q4_2019 <-  mutate(Q4_2019, ride_id = as.character(ride_id)
+                   ,rideable_type = as.character(rideable_type)) 
+```
+### Now that each dataframe are consistent, I'm ready to combine them into one dataframe.
+```{r}
+total<-bind_rows(Q2_2019, Q3_2019, Q4_2019, Q1_2020)
+```
+### Inspect the new table and remove unnecessary columns(lat, long, birthyear, gender).
+```{r}
+dim(total)
+head(total)
+summary(total)
+str(total)
+
+total <- total %>% 
+  select(-c(start_lat, start_lng, end_lat, end_lng, birthyear, gender, 
+            "01 - Rental Details Duration In Seconds Uncapped", 
+            "05 - Member Details Member Birthday Year", "Member Gender", "tripduration"))
+```
+### Problem
+
+Under the "member_casual" column, there are two names for members and also two names for casual riders("Member" and "subscriber" are the same, and "customer" and "casual" are the same). I have to combine each of the two labels.
+```{r}
+table(total$member_casual)
+total<-total %>% 
+  mutate(member_casual = recode(member_casual,
+                                "Subscriber" = "member","Customer" = "casual"))
+table(total$member_casual)
+```
+### For easier analysis, add additional columns of data giving more specified detail about ride date.
+```{r}
+total$date <- as.Date(total$started_at)
+total$month <- format(as.Date(total$date), "%m")
+total$day <- format(as.Date(total$date), "%d")
+total$year <- format(as.Date(total$date), "%Y")
+total$day_of_week <- format(as.Date(total$date), "%A")
+```
+### Add a "ride_duration" calculation to all_trips both in seconds and minutes.
+```{r}
+total$ride_length <- difftime(total$ended_at,total$started_at)
+total$ride_length_m <- (difftime(total$ended_at,total$started_at))/60
+summary(total)
+```
+### Notice some rides have negative ridetime due to several reasons, it is best to delete these rides. (We will create a new version since data are being removed)
+```{r}
+total_v2<-total[!(total$ride_length<0),]
+```
+### Descriptive Analysis on Ride Length
+```{r}
+total_v2 %>% 
+  summarise(max(ride_length), min(ride_length), mean(ride_length), median(ride_length))
+```
+### Compare between members and casuals
+```{r}
+aggregate(total_v2$ride_length ~ total_v2$member_casual, FUN = mean)
+aggregate(total_v2$ride_length ~ total_v2$member_casual, FUN = median)
+aggregate(total_v2$ride_length ~ total_v2$member_casual, FUN = max)
+aggregate(total_v2$ride_length ~ total_v2$member_casual, FUN = min)
+```
+### Average ride time by each day (in order) for members vs casuals.
+```{r}
+total_v2$day_of_week <-ordered(total_v2$day_of_week, levels = c("Monday", "Tuesday","Wednesday","Thursday","Friday","Saturday", "Sunday"))
+aggregate(total_v2$ride_length ~ total_v2$member_casual+total_v2$day_of_week, FUN = mean)
+```
+### Analyze number of rides as well as average ride time order by rider type and weekday.
+```{r}
+total_v2 %>% 
+  mutate(weekday = wday(started_at, label =TRUE)) %>% 
+  group_by(member_casual, weekday) %>% 
+  summarise(number_of_rides = n(), average_duration = mean(ride_length)) %>% 
+  arrange(member_casual, weekday)
+```
+### Visualize number of rides by rider type
+```{r}
+total_v2 %>%
+  group_by(member_casual) %>%
+  summarise(rider_count = n()) %>% 
+  ggplot(aes(x = member_casual, y = rider_count,fill=member_casual )) + geom_col()
+```
+
+### Number of rides and average_duration by rider type order by days of week
+```{r}
+#number of rides
+total_v2 %>% 
+  mutate(weekday = wday(started_at, label = TRUE)) %>% 
+  group_by(member_casual, weekday) %>% 
+  summarise(number_of_rides = n(), average_duration = mean(ride_length)) %>% 
+  arrange(member_casual, weekday) %>% 
+  ggplot(aes(x=weekday, y = number_of_rides, fill = member_casual))+geom_col(position = "dodge")
+#average duration
+total_v2 %>% 
+  mutate(weekday = wday(started_at, label = TRUE)) %>% 
+  group_by(member_casual, weekday) %>% 
+  summarise(number_of_rides = n(),average_duration = mean(ride_length)) %>% 
+  arrange(member_casual, weekday)  %>% 
+  ggplot(aes(x = weekday, y = average_duration , fill = member_casual)) + geom_col(position = "dodge")
+```
+
+### Effect of Seasonality Order by days of week
+```{r}
+total_v2$month <- as.numeric(total_v2$month)
+total_v2$season<-season(total_v2$month)
+total_v2%>%
+  group_by(season, day_of_week, member_casual) %>%   
+  summarise(number_of_rides = n(),avg_ride_length = mean(ride_length_m)) %>% 
+ggplot() + geom_col(mapping = aes(x = day_of_week, y = number_of_rides, fill = member_casual), position = "dodge") + facet_wrap(~season) + scale_y_continuous(breaks = seq(0, 400000, by = 50000))
+```
+
+### Continuous change of number of rides along the whole 12 months.
+```{r}
+total_v2%>%
+  group_by(month, member_casual) %>%   
+  summarise(number_of_rides = n(),avg_ride_length = mean(ride_length_m)) %>% 
+ggplot() + geom_line(mapping = aes(x = month, y = number_of_rides, color = member_casual)) + scale_x_continuous(breaks = seq(1, 12, by = 1))
+```
+
+
+### Conclusion
+
+1. From the first plot, we see over 70% of the users are annual members, suggesting the company is already doing a great job in keeping their users loyal and converting them to members.
+
+2. From the number_of_rides vs weekday plot and the average_duration vs weekday plot, we see that casual riders take longer rides and ride more often on the weekends. Members, on the other hand, take more number of rides but shorter duration per ride. 
+This may be due to tourists visiting the city on the weekends, or just people taking time off on the weekends.
+
+3. From the number_of_rides vs month line graph, we see the amount of rides start to rise in February and continue to rise till August. This correlation is due to the rise in temperature by the end of winter, with more people going outside and cycling. And inversely, when it starts to get cold again after August, the amount of rides goes down along with the temperature.
+
+### Recommendations
+
+1. The marketing Campaign should be launched between February to August, since the number of casual riders peak around this time.
+
+2. Design seasonal packages, providing more flexibility for riders to get membership for a specific period of time when they ride more often.
+
+3. Design riding packages targeting those riders who bike for recreational activities and weekend events and offer special discounts and coupons on such events to encourage casual riders to buy member.
